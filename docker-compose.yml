@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Envoy Proxy
+  envoy:
+    image: envoyproxy/envoy:v1.28-latest
+    ports:
+      - "8080:8080"  # Envoy Admin API (e.g. /stats, /config_dump)
+      - "8000:8000"  # Main proxy port
+      - "8001:8001"  # Secondary proxy port
+    volumes:
+      - ./envoy:/etc/envoy
+    command: /usr/local/bin/envoy -c /etc/envoy/envoy.yaml --log-level info
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    networks:
+      - envoy-network
+
+  # Backend Service 1 (Node.js)
+  backend1:
+    build: ./services/backend1
+    ports:
+      - "3001:3000"
+    environment:
+      - SERVICE_NAME=Backend-1
+      - PORT=3000
+    networks:
+      - envoy-network
+
+  # Backend Service 2 (Node.js)
+  backend2:
+    build: ./services/backend2
+    ports:
+      - "3002:3000"
+    environment:
+      - SERVICE_NAME=Backend-2
+      - PORT=3000
+    networks:
+      - envoy-network
+
+  # Backend Service 3 (Python Flask)
+  backend3:
+    build: ./services/backend3
+    ports:
+      - "3003:5000"
+    environment:
+      - SERVICE_NAME=Backend-3
+      - PORT=5000
+    networks:
+      - envoy-network
+
+  # Load generator for testing
+  load-generator:
+    build: ./services/load-generator
+    depends_on:
+      - envoy
+    networks:
+      - envoy-network
+    profiles:
+      - tools
+
+networks:
+  envoy-network:
+    driver: bridge
